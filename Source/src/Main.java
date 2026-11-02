@@ -90,16 +90,30 @@ class Lesson {
    }
 }
 
+enum modeOfComm {
+   EMAIL,
+   SMS
+}
+
 class User {
    private static int auto_id = 0;
    private int id;
    private String name, email;
+   private modeOfComm preferred;
+   private String phoneNumber;
 
-   User(String name, String email) {
+   User(String name, String email, modeOfComm preferred, String phoneNumber) {
       this.id = auto_id += 1;
       this.name = name;
       this.email = email;
+      this.preferred = preferred;
+      this.phoneNumber = phoneNumber;
    }
+
+   modeOfComm getPreferredMode() {
+      return this.preferred;
+   }
+
 
    int getId() {
       return this.id;
@@ -111,6 +125,10 @@ class User {
 
    String getEmail() {
       return this.email;
+   }
+
+   String getPhoneNumber() {
+      return this.phoneNumber;
    }
 
    @Override
@@ -129,8 +147,8 @@ class User {
 class Instructor extends User {
    private ICourseRepo repo;
 
-   Instructor(String name, String email, ICourseRepo repo) {
-      super(name, email);
+   Instructor(String name, String email, modeOfComm pref, ICourseRepo repo, String numb) {
+      super(name, email, pref, numb);
       this.repo = repo;
    }
 
@@ -143,8 +161,8 @@ class Instructor extends User {
 class Student extends User {
    private IEnrollmentRepo repo;
 
-   Student(String name, String email, IEnrollmentRepo repo) {
-      super(name, email);
+   Student(String name, String email, modeOfComm pref, IEnrollmentRepo repo, String numb) {
+      super(name, email, pref, numb);
       this.repo = repo;
    }
 
@@ -277,42 +295,39 @@ class EnrollmentRepo implements IEnrollmentRepo {
 }
 
 interface Notify {
-   void notify(String message);
+   void notify(String user, String message);
+}
+
+class NotificationFactory {
+   public Notify type(modeOfComm source) {
+      if (source == modeOfComm.EMAIL)
+         return new EmailNotification();
+      else if (source == modeOfComm.SMS)
+         return new SMSNotification();
+      throw new IllegalArgumentException("No valid service chosen for communication");
+   }
 }
 
 class EmailNotification implements Notify {
-   private final String email;
 
-   EmailNotification(String email) {
-      this.email = email;
-   }
-
-   public void notify(String message) {
+   public void notify(String email, String message) {
       System.out.println(message);
-      System.out.println("Email successfully sent to user");
    }
 }
 
 class SMSNotification implements Notify {
-   private String number;
 
-   SMSNotification(String number) {
-      this.number = number;
-   }
-
-   public void notify(String message) {
+   public void notify(String phoneNumber, String message) {
       System.out.println(message);
-      System.out.println("Message sent to mobile number" + number);
    }
 }
 
 class EnrollmentService {
-   private Notify n;
    private IEnrollmentRepo repo;
    private ICourseRepo cRepo;
+   private NotificationFactory fact = new NotificationFactory();
 
-   EnrollmentService(Notify n, IEnrollmentRepo repo, ICourseRepo cRepo) {
-      this.n = n;
+   EnrollmentService(IEnrollmentRepo repo, ICourseRepo cRepo) {
       this.repo = repo;
       this.cRepo = cRepo;
    }
@@ -323,20 +338,24 @@ class EnrollmentService {
 
    int enroll(Student s, Course c) {
       Enrollment e = new Enrollment(s, c);
+      modeOfComm pref = s.getPreferredMode();
+      Notify n = fact.type(pref);
+      n.notify(pref == modeOfComm.EMAIL ? s.getEmail() : s.getPhoneNumber(), "Your are successfully onboarded !");
       this.repo.addEnrollment(e);
-      n.notify("Congratulations ! You have been onboarded !");
       return e.id();
    }
 
-   boolean completeLesson(Enrollment e, Lesson l) {
+   void completeLesson(Enrollment e, Lesson l) {
       if (!e.completeLesson(l)) {
          System.out.println("This lesson is not part of the course");
-         return false;
+         return;
       }
       if (e.isCompleted()) {
-         n.notify("Congratulations on completing the course as of now !");
+         Student s = e.getStudent();
+         modeOfComm pref = s.getPreferredMode();
+         Notify n = fact.type(pref);
+         n.notify(pref == modeOfComm.EMAIL ? s.getEmail() : s.getPhoneNumber(), "Congratulations ! You have successfully completed the course");
       }
-      return true;
    }
 }
 
@@ -349,10 +368,10 @@ class Main {
       Course c = new Course("CS 4th Sem", "Sem 4 curriculum for CS");
       c.addModule(M);
       ICourseRepo cRepo = new CourseRepository();
-      Instructor i = new Instructor("Chamber", "Chamber", cRepo);
+      Instructor i = new Instructor("Chamber", "Chamber", modeOfComm.EMAIL, cRepo,"+91");
       IEnrollmentRepo repo = new EnrollmentRepo();
-      Student s = new Student("Viper", "Viper", repo);
-      EnrollmentService e = new EnrollmentService(new EmailNotification("Viper"), repo, cRepo);
+      Student s = new Student("Viper", "Viper", modeOfComm.EMAIL, repo,"+91");
+      EnrollmentService e = new EnrollmentService(repo, cRepo);
       e.addCourse(i, c);
       int id = e.enroll(s, c);
       e.completeLesson(repo.findById(id), l0);

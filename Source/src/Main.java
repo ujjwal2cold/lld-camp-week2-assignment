@@ -1,3 +1,5 @@
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 class Course {
@@ -309,9 +311,9 @@ class NotificationFactory {
 }
 
 class EmailNotification implements Notify {
-
    public void notify(String email, String message) {
       System.out.println(message);
+      Logger.getInstance().info("Email sent to user " + email);
    }
 }
 
@@ -319,6 +321,7 @@ class SMSNotification implements Notify {
 
    public void notify(String phoneNumber, String message) {
       System.out.println(message);
+      Logger.getInstance().info("SMS sent to user " + phoneNumber);
    }
 }
 
@@ -359,8 +362,32 @@ class EnrollmentService {
    }
 }
 
+class Logger {
+   private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+   private static final Logger instance = new Logger();
+
+   private Logger() {
+
+   }
+
+   public static Logger getInstance() {
+      return instance;
+   }
+
+   private synchronized void err(String message) {
+      LocalDateTime now = LocalDateTime.now();
+      String text = now.format(formatter);
+      System.out.println(text + " " + message);
+   }
+
+   public void info(String message) {
+      this.err(message);
+   }
+
+}
+
 class Main {
-   public static void main() {
+   public static void main(String[] args) {
       Lesson l0 = new Lesson(100, "DP", "DP"), l1 = new Lesson(100, "Seg tree", "Seg tree");
       Module M = new Module("DSA");
       M.addLesson(l0);
@@ -368,9 +395,9 @@ class Main {
       Course c = new Course("CS 4th Sem", "Sem 4 curriculum for CS");
       c.addModule(M);
       ICourseRepo cRepo = new CourseRepository();
-      Instructor i = new Instructor("Chamber", "Chamber", modeOfComm.EMAIL, cRepo,"+91");
+      Instructor i = new Instructor("Chamber", "Chamber", modeOfComm.EMAIL, cRepo, "+91");
       IEnrollmentRepo repo = new EnrollmentRepo();
-      Student s = new Student("Viper", "Viper", modeOfComm.EMAIL, repo,"+91");
+      Student s = new Student("Viper", "Viper", modeOfComm.EMAIL, repo, "+91");
       EnrollmentService e = new EnrollmentService(repo, cRepo);
       e.addCourse(i, c);
       int id = e.enroll(s, c);
